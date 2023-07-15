@@ -1,20 +1,38 @@
 pipeline {
-  agent any
-  stages {
-    stage ('Build') {
-      steps {
-        sh 'printenv'
-      }
+    agent any
+    options {
+        skipStagesAfterUnstable()
     }
-    stage ('Publish ECR') {
-      steps {
-        withEnv (["AWS_ACCESS_KEY_ID=${env.AWS_ACCESS_KEY_ID}", "AWS_SECRET_ACCESS_KEY=${env.AWS_SECRET_ACCESS_KEY}", "AWS_DEFAULT_REGION=${env.AWS_DEFAULT_REGION}"]) {
-          sh 'docker login -u AWS -p $(aws ecr-public get-login-password --region us-east-1) public.ecr.aws/x5a5a3b3'
-          sh 'docker build -t jenkins-ecr-pub: .'
-          sh 'docker tag jenkins-ecr-pub:""$BUILD_ID""'
-          sh 'docker push public.ecr.aws/x5a5a3b3/jenkins-ecr-pub:""$BUILD_ID""'
+    stages {
+         stage('Clone repository') { 
+            steps { 
+                script{
+                checkout scm
+                }
+            }
         }
-      }
+
+        stage('Build') { 
+            steps { 
+                script{
+                 app = docker.build("underwater")
+                }
+            }
+        }
+        stage('Test'){
+            steps {
+                 echo 'Empty'
+            }
+        }
+        stage('Deploy') {
+            steps {
+                script{
+                        docker.withRegistry('https://141114477676.dkr.ecr.ap-northeast-2.amazonaws.com/jenkins_ecr', 'ecr:ap-northeast-2:aws-credentials') {
+                    app.push("${env.BUILD_NUMBER}")
+                    app.push("latest")
+                    }
+                }
+            }
+        }
     }
-  }
 }
